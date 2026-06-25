@@ -56,6 +56,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
+> **Windows Server 部署**：如果你在 Windows Server 上手动部署，请参阅 [Windows Server 部署指南](docs/WINDOWS-DEPLOYMENT-GUIDE.md)（含 opus.dll 安装、FFmpeg 配置、腾讯云安全组等踩坑记录）。
+
 ### 关键配置项
 
 | 配置项 | 位置 | 值 | 说明 |
@@ -72,6 +74,8 @@ python app.py
 ## 使用文档
 
 详细使用手册（含服务端搭建、固件烧录、故障排查）请见：[ai-caption](https://github.com/artinsteinbrecher-lab/ai-caption)
+
+Windows Server 部署指南（含踩坑记录）请见：[Windows Server 部署指南](docs/WINDOWS-DEPLOYMENT-GUIDE.md)
 
 ## 致谢
 
