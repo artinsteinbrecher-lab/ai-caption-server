@@ -115,13 +115,14 @@ async def no_voice_close_connect(conn: "ConnectionHandler", have_voice):
             not conn.close_after_chat
             and no_voice_time > 1000 * close_connection_no_voice_time
         ):
-            conn.close_after_chat = True
             conn.client_abort = False
-            # caption_mode 下直接关闭连接，不发送结束提示语（避免结束语被当作字幕显示）
+            # caption_mode 下直接关闭连接，不设置 close_after_chat 标志
+            # （避免 close() 内部检查该标志时触发 TTS/结束语，导致结束语被当作字幕显示）
             if conn.config.get("caption_mode", False):
                 conn.logger.bind(tag=TAG).info("caption_mode: 静音超时，直接关闭连接")
                 await conn.close()
                 return
+            conn.close_after_chat = True
             end_prompt = conn.config.get("end_prompt", {})
             if end_prompt and end_prompt.get("enable", True) is False:
                 conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")

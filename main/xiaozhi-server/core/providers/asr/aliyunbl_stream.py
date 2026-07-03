@@ -311,7 +311,12 @@ class ASRProvider(ASRProviderBase):
         logger.bind(tag=TAG).debug("ASR状态已重置")
 
         # 先取消 forward_task，避免与 WebSocket 关闭操作竞态
-        if self.forward_task and not self.forward_task.done():
+        # 注意：当 _cleanup() 从 _forward_results() 的 finally 块调用时，
+        # forward_task 就是当前正在执行的 task，直接 await 自己会抛 RuntimeError
+        current_task = asyncio.current_task()
+        if (self.forward_task and
+                not self.forward_task.done() and
+                self.forward_task != current_task):
             self.forward_task.cancel()
             try:
                 await self.forward_task
