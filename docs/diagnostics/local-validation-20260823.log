@@ -1,0 +1,24 @@
+字幕后端本地验证记录
+日期: 2026-08-23
+范围: 本机源码与离线测试；未连接服务器，未部署
+
+$ python -m unittest discover -s main/xiaozhi-server/tests -v
+Ran 14 tests in 0.001s
+OK
+
+测试覆盖:
+- partial/append 协议字段与旧版 stt.text 兼容
+- stream_id/segment_id/seq/revision 单调递增
+- 最终段重复包去重
+- 中文输出门槛拒绝日文假名、韩文、俄文和无汉字文本
+- 中文句末标点、活动句长度限制与稳定前缀
+
+$ python main/xiaozhi-server/tools/caption_preflight.py --config main/xiaozhi-server/config.yaml --json
+{
+  "ok": true,
+  "issues": [
+    "WARNING: server.auth.enabled is false; confirm network controls before deployment"
+  ]
+}
+
+说明: 本机目录没有后端运行时 server.log；本文件只记录实际运行的离线验证，不代替部署实例日志。
