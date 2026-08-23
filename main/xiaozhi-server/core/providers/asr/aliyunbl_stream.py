@@ -68,6 +68,7 @@ class ASRProvider(ASRProviderBase):
         self.caption_partial_stable_revisions = max(
             1, int(caption_settings.get("partial_stable_revisions", 2))
         )
+        self.caption_partial_stable_mode = bool(config.get("caption_partial_stable_mode", False))
         # caption_mode 改为从 conn.config 读取（顶层配置），不在 ASR 配置节重复定义
 
         # WebSocket URL
@@ -278,11 +279,14 @@ class ASRProvider(ASRProviderBase):
                                 # not flood the device with every provider
                                 # revision. The shared prefix is the part that
                                 # two adjacent hypotheses agree on.
-                                stable_text = stable_caption_prefix(previous_partial, text)
-                                if observation_count < self.caption_partial_stable_revisions:
-                                    continue
-                                if not stable_text:
-                                    stable_text = text if self.caption_partial_stable_revisions <= 1 else ""
+                                if self.caption_partial_stable_mode:
+                                    stable_text = stable_caption_prefix(previous_partial, text)
+                                    if observation_count < self.caption_partial_stable_revisions:
+                                        continue
+                                    if not stable_text:
+                                        stable_text = text if self.caption_partial_stable_revisions <= 1 else ""
+                                else:
+                                    stable_text = text
                                 stable_text = limit_caption_text(stable_text, self.caption_partial_max_chars)
                                 if not stable_text:
                                     continue
