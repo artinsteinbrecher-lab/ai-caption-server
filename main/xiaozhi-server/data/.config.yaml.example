@@ -1,0 +1,22 @@
+# Copy this file to data/.config.yaml and replace only the placeholders.
+# The application loads data/.config.yaml as an override for config.yaml.
+# Do not commit a real API key or production URL.
+
+caption_mode: true
+caption:
+  protocol_version: 3
+  retain_history: false
+  partial_max_chars: 512
+  chinese_only: true
+
+server:
+  websocket: "ws://YOUR_SERVER_HOST:8000/xiaozhi/v1/"
+
+ASR:
+  AliyunBLStreamASR:
+    api_key: "REPLACE_WITH_YOUR_ALIYUN_API_KEY"
+    model: "paraformer-realtime-v2"
+    language_hints: ["zh"]
+    semantic_punctuation_enabled: true
+    max_sentence_silence: 600
+    multi_threshold_mode_enabled: true

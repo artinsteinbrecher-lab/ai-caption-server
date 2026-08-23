@@ -120,9 +120,14 @@ def initialize_asr(config):
         if "type" not in config["ASR"][select_asr_module]
         else config["ASR"][select_asr_module]["type"]
     )
+    # Give the selected provider a self-contained caption configuration
+    # without mutating the global configuration dictionary.
+    asr_config = dict(config["ASR"][select_asr_module])
+    asr_config["caption_mode"] = bool(config.get("caption_mode", False))
+    asr_config["caption"] = dict(config.get("caption", {}))
     new_asr = asr.create_instance(
         asr_type,
-        config["ASR"][select_asr_module],
+        asr_config,
         str(config.get("delete_audio", True)).lower() in ("true", "1", "yes"),
     )
     logger.bind(tag=TAG).info("ASR模块初始化完成")

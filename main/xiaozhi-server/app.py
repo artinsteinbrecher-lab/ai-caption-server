@@ -2,7 +2,6 @@ import sys
 import uuid
 import signal
 import asyncio
-from aioconsole import ainput
 from config.settings import load_config
 from config.logger import setup_logging
 from core.utils.util import get_local_ip, validate_mcp_endpoint
@@ -37,12 +36,6 @@ async def wait_for_exit() -> None:
             pass
 
 
-async def monitor_stdin():
-    """监控标准输入，消费回车键"""
-    while True:
-        await ainput()  # 异步等待输入，消费回车
-
-
 async def main():
     check_ffmpeg_installed()
     config = load_config()
@@ -61,17 +54,14 @@ async def main():
     
     config["server"]["auth_key"] = auth_key
 
-    # 添加 stdin 监控任务
-    stdin_task = asyncio.create_task(monitor_stdin())
-
     # 启动全局GC管理器（5分钟清理一次）
     gc_manager = get_gc_manager(interval_seconds=300)
     await gc_manager.start()
 
-    # 启动 WebSocket 服务器
+    # 启动 WebSocket 和 HTTP 服务。任一监听任务提前退出都必须使主进程
+    # 失败退出，否则服务管理器会把“端口没有监听”误判成健康状态。
     ws_server = WebSocketServer(config)
     ws_task = asyncio.create_task(ws_server.start())
-    # 启动 Simple http 服务器
     ota_server = SimpleHttpServer(config)
     ota_task = asyncio.create_task(ota_server.start())
 
@@ -122,8 +112,19 @@ async def main():
         "=============================================================\n"
     )
 
+    exit_task = asyncio.create_task(wait_for_exit())
     try:
-        await wait_for_exit()  # 阻塞直到收到退出信号
+        done, _ = await asyncio.wait(
+            [exit_task, ws_task, ota_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for name, task in (("WebSocket", ws_task), ("HTTP/OTA", ota_task)):
+            if task not in done:
+                continue
+            error = task.exception()
+            if error is not None:
+                raise RuntimeError(f"{name} 服务任务异常退出: {error}") from error
+            raise RuntimeError(f"{name} 服务任务意外结束")
     except asyncio.CancelledError:
         print("任务被取消，清理资源中...")
     finally:
@@ -131,14 +132,13 @@ async def main():
         await gc_manager.stop()
 
         # 取消所有任务（关键修复点）
-        stdin_task.cancel()
+        exit_task.cancel()
         ws_task.cancel()
-        if ota_task:
-            ota_task.cancel()
+        ota_task.cancel()
 
         # 等待任务终止（必须加超时）
         await asyncio.wait(
-            [stdin_task, ws_task, ota_task] if ota_task else [stdin_task, ws_task],
+            [exit_task, ws_task, ota_task],
             timeout=3.0,
             return_when=asyncio.ALL_COMPLETED,
         )

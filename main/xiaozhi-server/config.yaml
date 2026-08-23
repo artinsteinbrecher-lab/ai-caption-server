@@ -57,8 +57,8 @@ log:
 
 # 使用完声音文件后删除文件(Delete the sound file when you are done using it)
 delete_audio: true
-# 没有语音输入多久后断开连接(秒)，默认2分钟，即120秒
-close_connection_no_voice_time: 120
+# 没有语音输入多久后断开连接(秒)；字幕长连接空闲守卫另有独立超时
+close_connection_no_voice_time: 3600
 # TTS请求超时时间(秒)
 tts_timeout: 10
 # 工具调用超时时间(秒)
@@ -131,13 +131,12 @@ context_providers:
 # 插件的基础配置
 plugins:
   # 获取天气插件的配置，这里填写你的api_key
-  # 这个密钥是项目共用的key，用多了可能会被限制
-  # 想稳定一点就自行申请替换，每天有1000次免费调用
+  # 不内置共享密钥；如启用天气插件，请自行申请并只写入 data/.config.yaml。
   # 申请地址：https://console.qweather.com/#/apps/create-key/over
   # 申请后通过这个链接可以找到自己的apihost：https://console.qweather.com/setting?lang=zh
   get_weather:
     api_host: "mj7p3y7naa.re.qweatherapi.com"
-    api_key: "a861d0d5e7bf4ee1a83d9a9e4f96d4da"
+    api_key: "你的和风天气APIKey"
     default_location: "广州"
   # 获取新闻插件的配置，这里根据需要的新闻类型传入对应的url链接，默认支持社会、科技、财经新闻
   # 更多类型的新闻列表查看 https://www.chinanews.com.cn/rss/
@@ -252,6 +251,18 @@ selected_module:
 
 # Caption device mode: only stream ASR text to the device, no LLM or TTS reply.
 caption_mode: true
+caption:
+  protocol_version: 3
+  # 设备只持有当前屏可见的字幕；超过屏幕高度由固件从顶部丢弃。
+  retain_history: false
+  partial_max_chars: 512
+  # 课堂模式：限制 partial 更新频率，避免设备显示和网络队列被短包压满。
+  partial_emit_interval_ms: 120
+  # 只把相邻识别结果中已经稳定的前缀发送到屏幕；最终句仍完整发送。
+  partial_stable_revisions: 2
+  # 中文字幕机：仅输出含中文汉字、且不含日文假名等非中文文字的识别结果。
+  # language_hints 仍在 AliyunBLStreamASR 配置中固定为 ["zh"]。
+  chinese_only: true
 
 # 意图识别，是用于理解用户意图的模块，例如：播放音乐
 Intent:
@@ -594,15 +605,15 @@ ASR:
     format: pcm
     sample_rate: 16000  # v2支持任意采样率，v1仅支持16000，8k版本仅支持8000
     # 可选参数
-    disfluency_removal_enabled: false  # 是否过滤语气词(如"嗯"、"啊"等)
-    semantic_punctuation_enabled: false  # 语义断句(true:会议场景,准确;false:VAD断句,交互场景,低延迟)
-    max_sentence_silence: 200  # VAD断句静音时长阈值(ms)，范围200-6000，仅VAD断句时生效
-    multi_threshold_mode_enabled: false  # 防止VAD断句切割过长，仅VAD断句时生效
+    disfluency_removal_enabled: false  # 保留原始语义；需要更精简的会议字幕时可改为 true
+    semantic_punctuation_enabled: false  # VAD断句，优先保证逐字流式手感
+    max_sentence_silence: 900  # VAD断句静音时长阈值(ms)
+    multi_threshold_mode_enabled: true
     punctuation_prediction_enabled: true  # 是否自动添加标点符号
     inverse_text_normalization_enabled: true  # 是否开启ITN(中文数字转阿拉伯数字)
     # 热词定制文档地址：https://help.aliyun.com/zh/model-studio/custom-hot-words?
     # vocabulary_id: vocab-xxx-24ee19fa8cfb4d52902170a0xxxxxxxx  # 热词ID(可选)
-    # language_hints: ["zh", "en"]  # 指定语言(可选)，支持zh、en、ja、yue、ko、de、fr、ru
+    language_hints: ["zh"]  # 中文专用，禁止自动语言识别误选日语
     output_dir: tmp/  
 VAD:
   SileroVAD:
