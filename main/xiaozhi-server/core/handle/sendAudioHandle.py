@@ -331,11 +331,20 @@ async def send_stt_message(conn: "ConnectionHandler", text):
     conn.client_is_speaking = True
 
 
-async def send_display_message(conn: "ConnectionHandler", text):
-    """发送纯显示消息"""
-    message = {
-        "type": "stt",
-        "text": text,
-        "session_id": conn.session_id
-    }
+async def send_display_message(
+    conn: "ConnectionHandler",
+    text,
+    caption_action=None,
+    is_final=False,
+    caption_details=None,
+):
+    """Send a display message, with optional caption protocol v2 metadata.
+
+    Legacy firmware still reads the unchanged ``type`` and ``text`` fields.
+    Caption firmware v2 additionally uses ``caption.action`` to retain final
+    history while replacing only the active partial sentence.
+    """
+    from core.utils.caption import build_caption_message
+
+    message = build_caption_message(conn.session_id, text, caption_action, is_final, caption_details)
     await conn.websocket.send(json.dumps(message))

@@ -69,8 +69,14 @@ async def startToChat(conn: "ConnectionHandler", text):
         return
 
     if conn.config.get("caption_mode", False):
-        await send_display_message(conn, actual_text)
-        conn.logger.bind(tag=TAG).info(f"caption_mode: display ASR text only: {actual_text}")
+        from core.utils.caption import chinese_only_caption
+
+        caption_text = chinese_only_caption(actual_text)
+        if caption_text:
+            await send_display_message(conn, caption_text)
+            conn.logger.bind(tag=TAG).info(f"caption_mode: display Chinese ASR text only: {caption_text}")
+        else:
+            conn.logger.bind(tag=TAG).info("caption_mode: rejected non-Chinese ASR text")
         return
 
     # 如果当日的输出字数大于限定的字数

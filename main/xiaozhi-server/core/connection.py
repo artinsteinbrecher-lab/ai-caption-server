@@ -779,6 +779,22 @@ class ConnectionHandler:
         if private_config.get("context_providers", None) is not None:
             self.config["context_providers"] = private_config["context_providers"]
 
+        # Caption terminals only need VAD and ASR. Do not initialize LLM/TTS/
+        # intent/memory for this connection: it saves startup work, avoids
+        # unnecessary API-key warnings, and reduces server-side resource use.
+        caption_only = bool(
+            self.config.get("caption_mode", False)
+            or private_config.get("caption_mode", False)
+        )
+        if caption_only:
+            init_llm = False
+            init_tts = False
+            init_memory = False
+            init_intent = False
+            self.config["caption_mode"] = True
+            private_config["caption_mode"] = True
+            private_config["caption"] = dict(self.config.get("caption", {}))
+
         # 注入替换词到 TTS 模块配置
         if private_config.get("correct_words", None) is not None:
             select_tts_module = self.config["selected_module"]["TTS"]

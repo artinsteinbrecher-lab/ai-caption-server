@@ -1,6 +1,7 @@
 import json
 import uuid
 import asyncio
+import time
 import websockets
 import opuslib_next
 from typing import List, TYPE_CHECKING
@@ -12,6 +13,15 @@ from config.logger import setup_logging
 from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.dto.dto import InterfaceType
 from core.handle.sendAudioHandle import send_display_message
+from core.utils.caption import (
+    CaptionSequencer,
+    caption_segment_id,
+    chinese_only_caption,
+    finalize_caption,
+    limit_caption_text,
+    register_final_segment,
+    stable_caption_prefix,
+)
 
 TAG = __name__
 logger = setup_logging()
@@ -46,6 +56,19 @@ class ASRProvider(ASRProviderBase):
         self.multi_threshold_mode_enabled = config.get("multi_threshold_mode_enabled", False)
         self.punctuation_prediction_enabled = config.get("punctuation_prediction_enabled", True)
         self.inverse_text_normalization_enabled = config.get("inverse_text_normalization_enabled", True)
+        self.caption_mode = config.get("caption_mode", False)
+        caption_settings = config.get("caption", {})
+        self.caption_protocol_version = int(caption_settings.get("protocol_version", 3))
+        self.caption_partial_max_chars = int(caption_settings.get("partial_max_chars", 512))
+        self.caption_chinese_only = bool(caption_settings.get("chinese_only", True))
+        self.caption_partial_emit_interval = max(
+            0.0,
+            float(caption_settings.get("partial_emit_interval_ms", 120)) / 1000.0,
+        )
+        self.caption_partial_stable_revisions = max(
+            1, int(caption_settings.get("partial_stable_revisions", 2))
+        )
+        self.caption_partial_stable_mode = bool(config.get("caption_partial_stable_mode", False))
         # caption_mode 改为从 conn.config 读取（顶层配置），不在 ASR 配置节重复定义
 
         # WebSocket URL
@@ -84,6 +107,13 @@ class ASRProvider(ASRProviderBase):
         """开始识别会话"""
         try:
             conn.caption_last_text = ""
+            conn.caption_last_partial_raw = ""
+            conn.caption_last_stable_partial = ""
+            conn.caption_partial_observation_count = 0
+            conn.caption_last_partial_emit_at = 0.0
+            conn.caption_final_segment_ids = set()
+            conn.caption_sequencer = CaptionSequencer()
+            conn.caption_stream_id = conn.caption_sequencer.stream_id
 
             # 如果为手动模式,设置超时时长为最大值
             if conn.client_listen_mode == "manual":
@@ -203,19 +233,88 @@ class ASRProvider(ASRProviderBase):
 
                         # 判断是否为最终结果(sentence_end为True且end_time不为null)
                         is_final = sentence_end and end_time is not None
+                        segment_id = None
 
-                        if conn.config.get("caption_mode", False) and text:
+                        caption_enabled = self.caption_mode or conn.config.get("caption_mode", False)
+                        if caption_enabled and text:
+                            raw_text = text
+                            text = chinese_only_caption(raw_text) if self.caption_chinese_only else raw_text.strip()
                             last_text = getattr(conn, "caption_last_text", "")
-                            if text != last_text or is_final:
-                                await send_display_message(conn, text)
-                                conn.caption_last_text = text
+                            segment_id = caption_segment_id(sentence)
+                            sequencer = getattr(conn, "caption_sequencer", None)
+                            if sequencer is None:
+                                sequencer = CaptionSequencer(getattr(conn, "caption_stream_id", None))
+                                conn.caption_sequencer = sequencer
+
+                            if not text:
+                                # Do not let a rejected Japanese/non-Chinese hypothesis
+                                # repeatedly trigger the same screen update.
+                                conn.caption_last_text = raw_text
+                                logger.bind(tag=TAG).info(
+                                    "caption_mode: rejected non-Chinese ASR hypothesis"
+                                )
+                            elif is_final:
+                                final_segments = getattr(conn, "caption_final_segment_ids", set())
+                                if not register_final_segment(final_segments, segment_id):
+                                    conn.caption_last_text = raw_text
+                                    continue
+                                final_text = finalize_caption(text)
+                                await send_display_message(
+                                    conn,
+                                    limit_caption_text(final_text, self.caption_partial_max_chars),
+                                    caption_action="append",
+                                    is_final=True,
+                                    caption_details=sequencer.metadata("append", True, segment_id),
+                                )
+                                conn.caption_final_segment_ids = final_segments
+                                conn.caption_last_text = raw_text
+                            elif raw_text != last_text:
+                                previous_partial = getattr(conn, "caption_last_partial_raw", "")
+                                observation_count = getattr(conn, "caption_partial_observation_count", 0) + 1
+                                conn.caption_last_partial_raw = raw_text
+                                conn.caption_partial_observation_count = observation_count
+                                conn.caption_last_text = raw_text
+
+                                # Keep the latest hypothesis in memory, but do
+                                # not flood the device with every provider
+                                # revision. The shared prefix is the part that
+                                # two adjacent hypotheses agree on.
+                                if self.caption_partial_stable_mode:
+                                    stable_text = stable_caption_prefix(previous_partial, text)
+                                    if observation_count < self.caption_partial_stable_revisions:
+                                        continue
+                                    if not stable_text:
+                                        stable_text = text if self.caption_partial_stable_revisions <= 1 else ""
+                                else:
+                                    stable_text = text
+                                stable_text = limit_caption_text(stable_text, self.caption_partial_max_chars)
+                                if not stable_text:
+                                    continue
+                                now = time.monotonic()
+                                if now - getattr(conn, "caption_last_partial_emit_at", 0.0) < self.caption_partial_emit_interval:
+                                    continue
+                                if stable_text == getattr(conn, "caption_last_stable_partial", ""):
+                                    continue
+                                await send_display_message(
+                                    conn,
+                                    stable_text,
+                                    caption_action="partial",
+                                    is_final=False,
+                                    caption_details=sequencer.metadata("partial", False, segment_id),
+                                )
+                                conn.caption_last_stable_partial = stable_text
+                                conn.caption_last_partial_emit_at = now
 
                         if is_final:
-                            logger.bind(tag=TAG).info(f"识别到文本: {text}")
+                            logger.bind(tag=TAG).info(
+                                f"识别完成 chars={len(text)} segment={segment_id or '-'}"
+                            )
 
-                            if conn.config.get("caption_mode", False):
+                            if caption_enabled:
                                 self.text = text
-                                break
+                                # Keep listening across sentence boundaries so
+                                # the reader receives a continuous transcript.
+                                continue
 
                             # 手动模式下累积识别结果
                             if conn.client_listen_mode == "manual":
@@ -246,9 +345,11 @@ class ASRProvider(ASRProviderBase):
                         error_message = header.get("error_message", "未知错误")
                         logger.bind(tag=TAG).error(f"任务失败: {error_code} - {error_message}")
                         # caption_mode 下通知设备显示错误提示
-                        if conn.config.get("caption_mode", False):
+                        if self.caption_mode or conn.config.get("caption_mode", False):
                             try:
-                                await send_display_message(conn, "[识别异常，正在恢复...]")
+                                await send_display_message(
+                                    conn, "[识别异常，正在恢复…]", caption_action="append", is_final=True
+                                )
                             except Exception:
                                 pass
                         break

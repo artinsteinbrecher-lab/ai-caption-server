@@ -1,0 +1,21 @@
+name: Caption regression
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  protocol-and-config:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/main/xiaozhi-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --disable-pip-version-check PyYAML
+      - run: python -m unittest tests.test_caption_protocol
+      - run: python -m compileall -q core tools/caption_preflight.py
+      - run: python tools/caption_preflight.py --config config.yaml

@@ -125,12 +125,12 @@ Memory:
     llm:
       provider: qwen
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: qwen-plus
     embedder:
       provider: openai
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: text-embedding-v4
         openai_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     vector_store:
@@ -178,13 +178,13 @@ Memory:
     llm:
       provider: openai
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: gpt-4o-mini
         openai_base_url: https://api.openai.com/v1
     embedder:
       provider: openai
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: text-embedding-3-small
         openai_base_url: https://api.openai.com/v1
     vector_store:
@@ -209,12 +209,12 @@ Memory:
     llm:
       provider: qwen
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: qwen-plus
     embedder:
       provider: openai
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: text-embedding-v4
         openai_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     vector_store:
@@ -255,12 +255,12 @@ Memory:
     llm:
       provider: qwen
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: qwen-plus
     embedder:
       provider: openai
       config:
-        api_key: sk-xxxxxxxxxxxxxxxx
+        api_key: [REDACTED]
         model: text-embedding-v4
         openai_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     vector_store:
