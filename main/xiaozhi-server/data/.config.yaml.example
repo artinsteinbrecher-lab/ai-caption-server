@@ -7,16 +7,23 @@ caption:
   protocol_version: 3
   retain_history: false
   partial_max_chars: 512
+  partial_emit_interval_ms: 120
   chinese_only: true
 
 server:
   websocket: "ws://YOUR_SERVER_HOST:8000/xiaozhi/v1/"
+
+# Keep the WebSocket session alive for caption streaming.
+enable_websocket_ping: true
+close_connection_no_voice_time: 3600
 
 ASR:
   AliyunBLStreamASR:
     api_key: "REPLACE_WITH_YOUR_ALIYUN_API_KEY"
     model: "paraformer-realtime-v2"
     language_hints: ["zh"]
-    semantic_punctuation_enabled: true
-    max_sentence_silence: 600
+    semantic_punctuation_enabled: false
+    max_sentence_silence: 900
     multi_threshold_mode_enabled: true
+    # Optional: set true to restore the conservative shared-prefix partial gate.
+    # caption_partial_stable_mode: false
