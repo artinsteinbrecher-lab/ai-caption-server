@@ -14,6 +14,9 @@ from typing import Any
 import yaml
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = dict(base)
     for key, value in override.items():
@@ -60,8 +63,8 @@ def check_config(config: dict[str, Any]) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=Path("config.yaml"))
-    parser.add_argument("--override", type=Path, default=Path("data/.config.yaml"))
+    parser.add_argument("--config", type=Path, default=PROJECT_ROOT / "config.yaml")
+    parser.add_argument("--override", type=Path, default=PROJECT_ROOT / "data/.config.yaml")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     config = load_config(args.config, args.override if args.override.exists() else None)

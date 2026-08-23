@@ -2,28 +2,30 @@
 # The application loads data/.config.yaml as an override for config.yaml.
 # Do not commit a real API key or production URL.
 
+# 启用纯字幕模式，不进入 LLM/TTS 对话链路。
 caption_mode: true
 caption:
   protocol_version: 3
-  retain_history: false
-  partial_max_chars: 512
-  partial_emit_interval_ms: 120
-  chinese_only: true
+  retain_history: false # 历史由设备屏幕管理，后端只发送当前完整内容。
+  partial_max_chars: 512 # 活动句最大长度，避免单条消息过大。
+  partial_emit_interval_ms: 120 # partial 最短发送间隔（毫秒）。
+  chinese_only: true # 过滤不含中文或含日文假名等非中文文字的结果。
 
 server:
   websocket: "ws://YOUR_SERVER_HOST:8000/xiaozhi/v1/"
 
-# Keep the WebSocket session alive for caption streaming.
+# WebSocket 心跳，降低 NAT 或防火墙导致的断连。
 enable_websocket_ping: true
+# 普通长连接无语音一小时后关闭（秒）。字幕 ASR 还有独立的空闲守卫。
 close_connection_no_voice_time: 3600
 
 ASR:
   AliyunBLStreamASR:
     api_key: "REPLACE_WITH_YOUR_ALIYUN_API_KEY"
     model: "paraformer-realtime-v2"
-    language_hints: ["zh"]
-    semantic_punctuation_enabled: false
-    max_sentence_silence: 900
-    multi_threshold_mode_enabled: true
-    # Optional: set true to restore the conservative shared-prefix partial gate.
+    language_hints: ["zh"] # 中文优先，降低误识别为日语的概率。
+    semantic_punctuation_enabled: false # 使用 VAD 断句，优先保证流式手感。
+    max_sentence_silence: 900 # VAD 静音断句阈值（毫秒）。
+    multi_threshold_mode_enabled: true # 启用多阈值 VAD 模式。
+    # 可选：true 恢复旧的稳定前缀 partial 闸门，默认 false 为最新假设直发。
     # caption_partial_stable_mode: false
