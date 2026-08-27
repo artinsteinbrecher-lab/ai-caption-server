@@ -349,12 +349,12 @@ class TTSProvider(TTSProviderBase):
 
                             # 只处理当前活跃会话的响应
                             if task_id and self.conn.sentence_id != task_id:
-                                if event in ["ta[REDACTED]", "ta[REDACTED]"]:
+                                if event in ["task-finished", "task-failed"]:
                                     logger.bind(tag=TAG).debug(f"收到残余下行结束响应重置会话状态～～")
                                     self.activate_session = False
                                 continue
 
-                            if event == "ta[REDACTED]":
+                            if event == "task-started":
                                 logger.bind(tag=TAG).debug("TTS任务启动成功~")
                                 self.tts_audio_queue.put((SentenceType.FIRST, [], None))
                             elif event == "result-generated":
@@ -368,11 +368,11 @@ class TTSProvider(TTSProviderBase):
                                         (SentenceType.FIRST, [], tts_text)
                                     )
                                     self.clear_tts_text(self.conn.sentence_id)
-                            elif event == "ta[REDACTED]":
+                            elif event == "task-finished":
                                 logger.bind(tag=TAG).debug("TTS任务完成~")
                                 self.activate_session = False
                                 self._process_before_stop_play_files()
-                            elif event == "ta[REDACTED]":
+                            elif event == "task-failed":
                                 error_code = header.get("error_code", "unknown")
                                 error_message = header.get("error_message", "未知错误")
                                 logger.bind(tag=TAG).error(
@@ -480,10 +480,10 @@ class TTSProvider(TTSProviderBase):
                         if isinstance(msg, str):
                             data = json.loads(msg)
                             header = data.get("header", {})
-                            if header.get("event") == "ta[REDACTED]":
+                            if header.get("event") == "task-started":
                                 task_started = True
                                 logger.bind(tag=TAG).debug("TTS任务已启动")
-                            elif header.get("event") == "ta[REDACTED]":
+                            elif header.get("event") == "task-failed":
                                 error_code = header.get("error_code", "unknown")
                                 error_message = header.get("error_message", "未知错误")
                                 raise Exception(
@@ -531,10 +531,10 @@ class TTSProvider(TTSProviderBase):
                         elif isinstance(msg, str):
                             data = json.loads(msg)
                             header = data.get("header", {})
-                            if header.get("event") == "ta[REDACTED]":
+                            if header.get("event") == "task-finished":
                                 task_finished = True
                                 logger.bind(tag=TAG).debug("TTS任务完成")
-                            elif header.get("event") == "ta[REDACTED]":
+                            elif header.get("event") == "task-failed":
                                 error_code = header.get("error_code", "unknown")
                                 error_message = header.get("error_message", "未知错误")
                                 raise Exception(

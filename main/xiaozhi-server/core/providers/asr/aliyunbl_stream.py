@@ -187,8 +187,8 @@ class ASRProvider(ASRProviderBase):
                     payload = result.get("payload", {})
                     event = header.get("event", "")
 
-                    # 处理ta[REDACTED]事件
-                    if event == "ta[REDACTED]":
+                    # 处理task-started事件
+                    if event == "task-started":
                         self.server_ready = True
                         logger.bind(tag=TAG).debug("服务器已准备，开始发送缓存音频...")
 
@@ -255,13 +255,13 @@ class ASRProvider(ASRProviderBase):
                                 await self.handle_voice_stop(conn, audio_data)
                                 break
 
-                    # 处理ta[REDACTED]事件
-                    elif event == "ta[REDACTED]":
+                    # 处理task-finished事件
+                    elif event == "task-finished":
                         logger.bind(tag=TAG).debug("任务已完成")
                         break
 
-                    # 处理ta[REDACTED]事件
-                    elif event == "ta[REDACTED]":
+                    # 处理task-failed事件
+                    elif event == "task-failed":
                         error_code = header.get("error_code", "UNKNOWN")
                         error_message = header.get("error_message", "未知错误")
                         logger.bind(tag=TAG).error(f"任务失败: {error_code} - {error_message}")
